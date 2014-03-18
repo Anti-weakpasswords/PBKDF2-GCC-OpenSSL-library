@@ -1,3 +1,6 @@
+//In progress - SHA-512 updated with bin.  Do the same to the others.
+
+
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -6,7 +9,9 @@
 #include <getopt.h>
 // crypto.h used for the version
 #include <openssl/crypto.h>
-
+// bio.h and buffer.h are solely for Base64
+#include <openssl/bio.h>
+#include <openssl/buffer.h>
 
 #define MD5_openssl           100
 #define SHA_1_openssl_native  1000
@@ -90,14 +95,63 @@ void PBKDF2_HMAC_SHA_384(const char* pass, const unsigned char* salt, int32_t it
 }
 
 
-void PBKDF2_HMAC_SHA_512(const char* pass, const unsigned char* salt, int32_t iterations, uint32_t outputBytes, char* hexResult)
+void PBKDF2_HMAC_SHA_512(const char* pass, const unsigned char* salt, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
 {
     unsigned int i;
     unsigned char digest[outputBytes];
     PKCS5_PBKDF2_HMAC(pass, strlen(pass), salt, strlen(salt), iterations, EVP_sha512(), outputBytes, digest);
     for (i = 0; i < sizeof(digest); i++)
+      {
         sprintf(hexResult + (i * 2), "%02x", 255 & digest[i]);
+        binResult[i] = digest[i];
+      };
+        
 }
+
+
+
+char *Base64PlusSlashEqualsMultiLine2bin(unsigned char *input, int length)
+{
+// from http://www.ioncannon.net/programming/122/howto-base64-decode-with-cc-and-openssl/
+  BIO *b64, *bmem;
+
+  char *buffer = (char *)malloc(length);
+  memset(buffer, 0, length);
+
+  b64 = BIO_new(BIO_f_base64());
+  bmem = BIO_new_mem_buf(input, length);
+  bmem = BIO_push(b64, bmem);
+
+  BIO_read(bmem, buffer, length);
+
+  BIO_free_all(bmem);
+
+  return buffer;
+}
+
+char *bin2Base64PlusSlashEqualsMultiLine(const unsigned char *input, int length)
+{
+// from http://www.ioncannon.net/programming/34/howto-base64-encode-with-cc-and-openssl/
+  BIO *bmem, *b64;
+  BUF_MEM *bptr;
+
+  b64 = BIO_new(BIO_f_base64());
+  bmem = BIO_new(BIO_s_mem());
+  b64 = BIO_push(b64, bmem);
+  BIO_write(b64, input, length);
+  BIO_flush(b64);
+  BIO_get_mem_ptr(b64, &bptr);
+
+  char *buff = (char *)malloc(bptr->length);
+  memcpy(buff, bptr->data, bptr->length-1);
+  buff[bptr->length-1] = 0;
+
+  BIO_free_all(b64);
+
+  return buff;
+}
+
+
 
 
 int main(int argc, char **argv)
@@ -237,7 +291,7 @@ int main(int argc, char **argv)
   // 2*outputBytes+1 is 2 hex bytes per binary byte, and one character at the end for the string-terminating \0
   char hexResult[2*outputBytes+1];
   memset(hexResult,0,sizeof(hexResult));
-  char binResult[outputBytes];
+  uint8_t binResult[outputBytes];
   memset(hexResult,0,sizeof(binResult));
 
 //    printf("Computing PBKDF2(HMAC-SHA512, '%s', '%s', %d, %d) ...\n", pass, salt, iterations, outputBytes);
@@ -248,7 +302,7 @@ int main(int argc, char **argv)
       {
         puts("WARNING: If you intend to use the result for password hashing, you should not choose a length greater than the native output size of the underlying hash function.");
       }
-      PBKDF2_HMAC_SHA_512(pass, salt, iterations, outputBytes, hexResult);
+      PBKDF2_HMAC_SHA_512(pass, salt, iterations, outputBytes, hexResult, binResult);
       break;
     case SHA_384_openssl:
       if (verbose && outputBytes > 48)
@@ -300,7 +354,7 @@ int main(int argc, char **argv)
   if (expected == NULL)
     {
     // Normal output
-    printf("%s\n", hexResult);
+    printf("hex lowercase:\n%s\nhex uppercase with colons:\n%s\nBase64 of Bin PlusSlashEqualsMultiLine:\n%s\n", hexResult, hex_to_string(binResult,sizeof(binResult)),bin2Base64PlusSlashEqualsMultiLine(binResult,sizeof(binResult)));
     }
   else 
     {
