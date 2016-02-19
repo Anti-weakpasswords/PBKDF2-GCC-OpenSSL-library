@@ -1,4 +1,4 @@
-//In progress - SHA-512 updated with bin.  Do the same to the others.
+/* working on salt formats; they don't work so well yet */
 
 
 #include <string.h>
@@ -14,7 +14,7 @@
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
 
-#define MD5_openssl           100
+#define MD5_openssl           	100
 #define SHA_1_openssl_native  1000
 #define SHA_1_openssl         2100
 #define SHA_224_openssl       2200
@@ -25,8 +25,9 @@
 #define OUT_HEXU	      1
 #define OUT_HEXC	      2
 #define OUT_HEXUC	      3
-#define OUT_BASE64	      4
+#define OUT_BASE64SingleLine	      4
 #define OUT_BIN	 	      5
+#define OUT_BASE64MultiLine	      6
 #define SFMT_HEX		0
 #define SFMT_STR		1
 #define SFMT_B64        2
@@ -179,6 +180,33 @@ char *bin2Base64PlusSlashEqualsMultiLine(const unsigned char *input, int length)
   return buff;
 }
 
+
+char *bin2Base64PlusSlashEqualsSingleLine(const unsigned char *input, int length)
+{
+// from http://www.ioncannon.net/programming/34/howto-base64-encode-with-cc-and-openssl/
+  BIO *bmem, *b64;
+  BUF_MEM *bptr;
+
+  b64 = BIO_new(BIO_f_base64());
+  BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+  bmem = BIO_new(BIO_s_mem());
+  b64 = BIO_push(b64, bmem);
+  BIO_write(b64, input, length);
+  BIO_flush(b64);
+  BIO_get_mem_ptr(b64, &bptr);
+
+  char *buff = (char *)malloc(bptr->length);
+  memcpy(buff, bptr->data, bptr->length-1);
+  buff[bptr->length-1] = 0;
+
+  BIO_free_all(b64);
+
+  return buff;
+}
+
+
+
+
 char *toUpper(char *str, int len)
 {
     unsigned int i;
@@ -232,7 +260,7 @@ int main(int argc, char **argv)
   uint8_t verbose = 0;
   uint8_t help = 0;
   uint8_t oType = 0;
-  uint8_t sType = 0;
+  uint8_t sType = 1;
   
   opterr = 0;
   
@@ -299,17 +327,19 @@ int main(int argc, char **argv)
         break;
       case 'O':
 	if (strcmp(optarg,"hex")==0)
-		oType = OUT_HEX;
+	    oType = OUT_HEX;
 	else if(strcmp(optarg,"Hex")==0)
-		oType = OUT_HEXU;
+	    oType = OUT_HEXU;
 	else if(strcmp(optarg,"hexc")==0)
-		oType = OUT_HEXC;
+	    oType = OUT_HEXC;
 	else if(strcmp(optarg,"Hexc")==0)
-		oType = OUT_HEXUC;
+	    oType = OUT_HEXUC;
 	else if(strcmp(optarg,"base64")==0)
-		oType = OUT_BASE64;
+	    oType = OUT_BASE64SingleLine;
+	else if(strcmp(optarg,"base64ML")==0)
+	    oType = OUT_BASE64MultiLine;
 	else if(strcmp(optarg,"bin")==0)
-		oType = OUT_BIN;
+	    oType = OUT_BIN;
 	else
 	{
             printf("ERROR: For -O (Outputfmt) argument %s unknown.\n", optarg);
@@ -318,20 +348,20 @@ int main(int argc, char **argv)
       break;
       case 'S':
       	if(strcmp(optarg, "hex")==0)
-		    sType = SFMT_HEX;
-	    else if(strcmp(optarg, "str")==0)
-		    sType = SFMT_STR;
-        else if (strcmp(optarg, "base64"))
+	    sType = SFMT_HEX;
+        else if(strcmp(optarg, "str")==0)
+	    sType = SFMT_STR;
+        else if (strcmp(optarg, "base64")==0)
             sType = SFMT_B64;
-	    else
-	    {
+        else
+        {
             printf("ERROR: For -S (saltfmt) argument %s unknown.\n", optarg);
             return -6;
-	    }
+        }
 
       break;
       case '?':
-        puts("Case ?");fflush;
+         puts("Case ?");fflush;
        if (optopt == 'c')
          fprintf (stderr, "Option -%c requires an argument.\n", optopt);
        else if (isprint (optopt))
@@ -358,18 +388,19 @@ int main(int argc, char **argv)
     puts("  -p password        Password to hash");
     puts("  -P passwordfmt     NOT YET IMPLEMENTED - always string");
     puts("  -s salt            Salt for the hash.  Should be long and cryptographically random.");
-    puts("  -S saltfmt         hex: for Hex (default) / str: for String / base64: for Base64 string format");
+    puts("  -S saltfmt         NOT WORKING RIGHT: format of salt, valid values hex|str|base64     default is str");
     puts("  -i iterations      Number of iterations, as high as you can handle the delay for, at least 16384 recommended.");
     puts("  -o bytes           Number of bytes of output; for password hashing, keep less than or equal to native hash size (MD5 <=16, SHA-1 <=20, SHA-256 <=32, SHA-512 <=64)");
     //puts("  -O outputfmt       Output format NOT YET IMPLEMENTED - always HEX (lowercase)");
-    puts("  -O outputfmt       Output format:");
+    puts("  -O outputfmt       Output format, valid values hex|Hex|hexc|Hexc|base64|bin    ");
     puts("                            - hex:		Lowercase Hex (default)");
     puts("                            - Hex:		Uppercase Hex");
     puts("                            - hexc:		Lowercase Hex with : deliminated");
     puts("                            - Hexc:		Uppercase Hex with : deliminated");
-    puts("                            - base64:		Base64");
+    puts("                            - base64:		Base64 single line");
+    puts("                            - base64ML:	Base64 multi line");
     puts("                            - bin:		Binary");
-    puts("  -e hash            Expected hash (in the same format as outputfmt) results in output of 0 <actual> <expected> = different, 1 = same NOT YET IMPLEMENTED");
+    puts("  -e hash            Expected hash (in the same format as outputfmt) results in output of 0 <actual> <expected> = different, 1 = same NOT tested with outputfmt");
     puts("  -n                 Interactive mode; NOT YET IMPLEMENTED");
   }
      
@@ -487,11 +518,14 @@ int main(int argc, char **argv)
 		case OUT_HEXUC:
             finResult = colonDeliminate(toUpper(hexResult, strlen(hexResult)), strlen(hexResult));
 			break;
-		case OUT_BASE64:
+		case OUT_BASE64MultiLine:
             finResult = bin2Base64PlusSlashEqualsMultiLine(binResult, strlen(binResult));
 			break;
 		case OUT_BIN:
             finResult = binResult;
+			break;
+		case OUT_BASE64SingleLine:
+            finResult = bin2Base64PlusSlashEqualsSingleLine(binResult, strlen(binResult));
 			break;
 		default:
 		    finResult = hexResult;	
