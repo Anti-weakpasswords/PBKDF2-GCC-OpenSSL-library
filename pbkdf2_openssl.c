@@ -1,9 +1,9 @@
-/* working on salt formats; hex is now OK; base64 is garbage due to decoded length issues */
+/* salt formats and output formats appear to be working. 
+Next up: password formats, and testing extensions!
+After that: add some deliberate failure tests!
+*/
 
-
-// base64 encoding is BROKEN completely; decoding may not be much better (see the salt QUE= which is str AA which is hex 4141 ; it's not listing the decoded size!!!)
-// ./pbkdf2 -p a}P_-^cWi_OD~w{qjjA4fB -a SHA-512 -i 102400 -o 112 -O base64 -S str -s 4100abcd
-//  should give a much longer output.
+// TODO: All of the https://stackoverflow.com/questions/342409/how-do-i-base64-encode-decode-in-c can be removed as soon as the Base64 OpenSSL code can be validated.
 
 #include <string.h>
 #include <stdio.h>
@@ -52,11 +52,11 @@
 
 // Originally from http://stackoverflow.com/questions/10067729/fast-sha-2-authentication-with-apache-is-it-even-possible
 
-void PBKDF2_HMAC_MD5(const char* pass, const unsigned char* salt, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
+void PBKDF2_HMAC_MD5(const char* pass, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
 {
     unsigned int i;
     unsigned char digest[outputBytes];
-    PKCS5_PBKDF2_HMAC(pass, strlen(pass), salt, strlen(salt), iterations, EVP_md5(), outputBytes, digest);
+    PKCS5_PBKDF2_HMAC(pass, strlen(pass), salt, saltlen, iterations, EVP_md5(), outputBytes, digest);
     for (i = 0; i < sizeof(digest); i++)
     {
         sprintf(hexResult + (i * 2), "%02x", 255 & digest[i]);
@@ -65,11 +65,11 @@ void PBKDF2_HMAC_MD5(const char* pass, const unsigned char* salt, int32_t iterat
 }
 
 
-void PBKDF2_HMAC_SHA_1nat(const char* pass, const unsigned char* salt, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
+void PBKDF2_HMAC_SHA_1nat(const char* pass, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
 {
     unsigned int i;
     unsigned char digest[outputBytes];
-    PKCS5_PBKDF2_HMAC_SHA1(pass, strlen(pass), salt, strlen(salt), iterations, outputBytes, digest);
+    PKCS5_PBKDF2_HMAC_SHA1(pass, strlen(pass), salt, saltlen, iterations, outputBytes, digest);
     for (i = 0; i < sizeof(digest); i++)
     {
         sprintf(hexResult + (i * 2), "%02x", 255 & digest[i]);
@@ -78,11 +78,11 @@ void PBKDF2_HMAC_SHA_1nat(const char* pass, const unsigned char* salt, int32_t i
 }
 
 
-void PBKDF2_HMAC_SHA_1(const char* pass, const unsigned char* salt, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
+void PBKDF2_HMAC_SHA_1(const char* pass, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
 {
     unsigned int i;
     unsigned char digest[outputBytes];
-    PKCS5_PBKDF2_HMAC(pass, strlen(pass), salt, strlen(salt), iterations, EVP_sha1(), outputBytes, digest);
+    PKCS5_PBKDF2_HMAC(pass, strlen(pass), salt, saltlen, iterations, EVP_sha1(), outputBytes, digest);
     for (i = 0; i < sizeof(digest); i++)
     {
         sprintf(hexResult + (i * 2), "%02x", 255 & digest[i]);
@@ -91,11 +91,11 @@ void PBKDF2_HMAC_SHA_1(const char* pass, const unsigned char* salt, int32_t iter
 }
 
 
-void PBKDF2_HMAC_SHA_224(const char* pass, const unsigned char* salt, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
+void PBKDF2_HMAC_SHA_224(const char* pass, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
 {
     unsigned int i;
     unsigned char digest[outputBytes];
-    PKCS5_PBKDF2_HMAC(pass, strlen(pass), salt, strlen(salt), iterations, EVP_sha224(), outputBytes, digest);
+    PKCS5_PBKDF2_HMAC(pass, strlen(pass), salt, saltlen, iterations, EVP_sha224(), outputBytes, digest);
     for (i = 0; i < sizeof(digest); i++)
     {
         sprintf(hexResult + (i * 2), "%02x", 255 & digest[i]);
@@ -104,11 +104,11 @@ void PBKDF2_HMAC_SHA_224(const char* pass, const unsigned char* salt, int32_t it
 }
 
 
-void PBKDF2_HMAC_SHA_256(const char* pass, const unsigned char* salt, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
+void PBKDF2_HMAC_SHA_256(const char* pass, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
 {
     unsigned int i;
     unsigned char digest[outputBytes];
-    PKCS5_PBKDF2_HMAC(pass, strlen(pass), salt, strlen(salt), iterations, EVP_sha256(), outputBytes, digest);
+    PKCS5_PBKDF2_HMAC(pass, strlen(pass), salt, saltlen, iterations, EVP_sha256(), outputBytes, digest);
     for (i = 0; i < sizeof(digest); i++)
     {
         sprintf(hexResult + (i * 2), "%02x", 255 & digest[i]);
@@ -116,11 +116,11 @@ void PBKDF2_HMAC_SHA_256(const char* pass, const unsigned char* salt, int32_t it
     };
 }
 
-void PBKDF2_HMAC_SHA_384(const char* pass, const unsigned char* salt, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
+void PBKDF2_HMAC_SHA_384(const char* pass, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
 {
     unsigned int i;
     unsigned char digest[outputBytes];
-    PKCS5_PBKDF2_HMAC(pass, strlen(pass), salt, strlen(salt), iterations, EVP_sha384(), outputBytes, digest);
+    PKCS5_PBKDF2_HMAC(pass, strlen(pass), salt, saltlen, iterations, EVP_sha384(), outputBytes, digest);
     for (i = 0; i < sizeof(digest); i++)
     {
         sprintf(hexResult + (i * 2), "%02x", 255 & digest[i]);
@@ -147,6 +147,9 @@ void PBKDF2_HMAC_SHA_512(const char* pass, const unsigned char* salt, int saltle
 char *Base64PlusSlashEqualsMultiLine2bin(unsigned char *input, int length)
 {
 // from http://www.ioncannon.net/programming/122/howto-base64-decode-with-cc-and-openssl/
+
+// BROKEN BROKEN BROKEN - DOES NOT RETURN ACTUAL LENGTH OF DECODED OUTPUT
+
   BIO *b64, *bmem;
 
   char *buffer = (char *)malloc(length);
@@ -166,6 +169,9 @@ char *Base64PlusSlashEqualsMultiLine2bin(unsigned char *input, int length)
 char *Base64PlusSlashEqualsSingleLine2bin(unsigned char *input, int length)
 {
 // from http://www.ioncannon.net/programming/122/howto-base64-decode-with-cc-and-openssl/
+
+// BROKEN BROKEN BROKEN - DOES NOT RETURN ACTUAL LENGTH OF DECODED OUTPUT
+
   BIO *b64, *bmem;
 
   char *buffer = (char *)malloc(length);
@@ -195,21 +201,48 @@ static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
                                 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
                                 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
                                 'w', 'x', 'y', 'z', '0', '1', '2', '3',
-                                '4', '5', '6', '7', '8', '9', '+', '/'};
-static char *decoding_table = NULL;
-static int mod_table[] = {0, 2, 1};
+                                '4', '5', '6', '7', '8', '9', '+', '/'}; // from https://stackoverflow.com/questions/342409/how-do-i-base64-encode-decode-in-c
+
+static char *decoding_table = NULL; // from https://stackoverflow.com/questions/342409/how-do-i-base64-encode-decode-in-c
+
+static int mod_table[] = {0, 2, 1}; // from https://stackoverflow.com/questions/342409/how-do-i-base64-encode-decode-in-c
+
+
+void build_decoding_table() {
+// from https://stackoverflow.com/questions/342409/how-do-i-base64-encode-decode-in-c
+    int i;
+    decoding_table = malloc(256);
+
+    for (i = 0; i < 64; i++)
+        decoding_table[(unsigned char) encoding_table[i]] = i;
+}
+
+
+void base64_cleanup() {
+// from https://stackoverflow.com/questions/342409/how-do-i-base64-encode-decode-in-c
+    free(decoding_table);
+}
 
 
 char *base64_encode(const unsigned char *data,
                     size_t input_length,
                     size_t *output_length) {
 // from https://stackoverflow.com/questions/342409/how-do-i-base64-encode-decode-in-c
+
+// Probably has some issues.
+
+    int i;
+    int j;
     *output_length = 4 * ((input_length + 2) / 3);
 
-    char *encoded_data = malloc(*output_length);
+
+    char *encoded_data = malloc(*output_length+1); // modified to add a place to add \0
+	  memset(encoded_data,0,sizeof(encoded_data)); // \0 fill
+
+
     if (encoded_data == NULL) return NULL;
 
-    for (int i = 0, j = 0; i < input_length;) {
+    for (i = 0, j = 0; i < input_length;) {
 
         uint32_t octet_a = i < input_length ? (unsigned char)data[i++] : 0;
         uint32_t octet_b = i < input_length ? (unsigned char)data[i++] : 0;
@@ -223,8 +256,9 @@ char *base64_encode(const unsigned char *data,
         encoded_data[j++] = encoding_table[(triple >> 0 * 6) & 0x3F];
     }
 
-    for (int i = 0; i < mod_table[input_length % 3]; i++)
+    for (i = 0; i < mod_table[input_length % 3]; i++)
         encoded_data[*output_length - 1 - i] = '=';
+
 
     return encoded_data;
 }
@@ -234,6 +268,11 @@ unsigned char *base64_decode(const char *data,
                              size_t input_length,
                              size_t *output_length) {
 // from https://stackoverflow.com/questions/342409/how-do-i-base64-encode-decode-in-c
+
+// probably has some SERIOUS issues with malformed input.
+
+    int i;
+    int j;
     if (decoding_table == NULL) build_decoding_table();
 
     if (input_length % 4 != 0) return NULL;
@@ -245,7 +284,7 @@ unsigned char *base64_decode(const char *data,
     unsigned char *decoded_data = malloc(*output_length);
     if (decoded_data == NULL) return NULL;
 
-    for (int i = 0, j = 0; i < input_length;) {
+    for (i = 0, j = 0; i < input_length;) {
 
         uint32_t sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
         uint32_t sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
@@ -266,19 +305,6 @@ unsigned char *base64_decode(const char *data,
 }
 
 
-void build_decoding_table() {
-// from https://stackoverflow.com/questions/342409/how-do-i-base64-encode-decode-in-c
-    decoding_table = malloc(256);
-
-    for (int i = 0; i < 64; i++)
-        decoding_table[(unsigned char) encoding_table[i]] = i;
-}
-
-
-void base64_cleanup() {
-// from https://stackoverflow.com/questions/342409/how-do-i-base64-encode-decode-in-c
-    free(decoding_table);
-}
 
 
 
@@ -290,15 +316,16 @@ char *bin2Base64PlusSlashEqualsMultiLine(const unsigned char *input, int length)
   BUF_MEM *bptr;
 
   b64 = BIO_new(BIO_f_base64());
+  //BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL); // When this is set, for 1 binary byte of input, bptr->length is 4 (no space for trailing \0).  When not set, bptr->length is 5 (i.e. space for trailing \0 is included).
   bmem = BIO_new(BIO_s_mem());
   b64 = BIO_push(b64, bmem);
   BIO_write(b64, input, length);
   BIO_flush(b64);
   BIO_get_mem_ptr(b64, &bptr);
 
-  char *buff = (char *)malloc(bptr->length);
-  memcpy(buff, bptr->data, bptr->length-1);
-  buff[bptr->length-1] = 0;
+  char *buff = (char *)malloc(bptr->length); // when the BIO_FLAGS_BASE64_NO_NL is NOT set, no need for an extra byte.  If it IS set, then we must add a spot for \0.
+  memset(buff,0,bptr->length); // \0 fill for completeness
+  memcpy(buff, bptr->data, bptr->length);
 
   BIO_free_all(b64);
 
@@ -313,16 +340,16 @@ char *bin2Base64PlusSlashEqualsSingleLine(const unsigned char *input, int length
   BUF_MEM *bptr;
 
   b64 = BIO_new(BIO_f_base64());
-  BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+  BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL); // When this is set, for 1 binary byte of input, bptr->length is 4 (no space for trailing \0).  When not set, bptr->length is 5 (i.e. space for trailing \0 is included).
   bmem = BIO_new(BIO_s_mem());
   b64 = BIO_push(b64, bmem);
   BIO_write(b64, input, length);
   BIO_flush(b64);
   BIO_get_mem_ptr(b64, &bptr);
 
-  char *buff = (char *)malloc(bptr->length);
-  memcpy(buff, bptr->data, bptr->length-1);
-  buff[bptr->length-1] = 0;
+  char *buff = (char *)malloc(bptr->length+1); // when the BIO_FLAGS_BASE64_NO_NL is NOT set, no need for this.  If it IS set, then we must add a spot for \0.
+  memset(buff,0,bptr->length+1); // \0 fill for completeness
+  memcpy(buff, bptr->data, bptr->length);
 
   BIO_free_all(b64);
 
@@ -401,6 +428,7 @@ int main(int argc, char **argv)
   char *expected = NULL;
   uint32_t iterations = 0;
   uint32_t outputBytes = 0;
+  uint32_t outputActualLength = 0;
   uint16_t algo = 0;
   int c;
   uint8_t verbose = 0;
@@ -409,6 +437,8 @@ int main(int argc, char **argv)
   uint32_t sType = SFMT_STR;
   
   opterr = 0;
+
+	build_decoding_table();// from https://stackoverflow.com/questions/342409/how-do-i-base64-encode-decode-in-c
   
 
   while ((c = getopt (argc, argv, "nhva:p:P:s:S:i:o:O:e:")) != -1)
@@ -600,8 +630,9 @@ int main(int argc, char **argv)
           };
         break;
       case SFMT_BASE64SingleLine:
-        salt= Base64PlusSlashEqualsSingleLine2bin(salt, strlen(salt));
-        // ERROR ERROR NEED TO ADJUST SALTLEN!  MAY HAVE \0 values that halt strlen early
+//        salt= Base64PlusSlashEqualsSingleLine2bin(salt, strlen(salt));
+//        // ERROR ERROR NEED TO ADJUST SALTLEN!  MAY HAVE \0 values that halt strlen early
+          salt = base64_decode(salt, strlen(salt),(size_t *)&saltlen);
         if(verbose)
           {
           printf("Decoded salt: %s\n",salt);
@@ -642,42 +673,42 @@ int main(int argc, char **argv)
       {
         puts("WARNING: If you intend to use the result for password hashing, you should not choose a length greater than the native output size of the underlying hash function.");
       }
-      PBKDF2_HMAC_SHA_384(pass, salt, iterations, outputBytes, hexResult, binResult);
+      PBKDF2_HMAC_SHA_384(pass, salt, saltlen, iterations, outputBytes, hexResult, binResult);
       break;
     case SHA_256_openssl:
       if (verbose && outputBytes > 32)
       {
         puts("WARNING: If you intend to use the result for password hashing, you should not choose a length greater than the native output size of the underlying hash function.");
       }
-      PBKDF2_HMAC_SHA_256(pass, salt, iterations, outputBytes, hexResult, binResult);
+      PBKDF2_HMAC_SHA_256(pass, salt, saltlen, iterations, outputBytes, hexResult, binResult);
       break;
     case SHA_224_openssl:
       if (verbose && outputBytes > 28)
       {
         puts("WARNING: If you intend to use the result for password hashing, you should not choose a length greater than the native output size of the underlying hash function.");
       }
-      PBKDF2_HMAC_SHA_224(pass, salt, iterations, outputBytes, hexResult, binResult);
+      PBKDF2_HMAC_SHA_224(pass, salt, saltlen, iterations, outputBytes, hexResult, binResult);
       break;
     case SHA_1_openssl:
       if (verbose && outputBytes > 20)
       {
         puts("WARNING: If you intend to use the result for password hashing, you should not choose a length greater than the native output size of the underlying hash function.");
       }
-      PBKDF2_HMAC_SHA_1(pass, salt, iterations, outputBytes, hexResult, binResult);
+      PBKDF2_HMAC_SHA_1(pass, salt, saltlen, iterations, outputBytes, hexResult, binResult);
       break;
     case SHA_1_openssl_native:
       if (verbose && outputBytes > 20)
       {
         puts("WARNING: If you intend to use the result for password hashing, you should not choose a length greater than the native output size of the underlying hash function.");
       }
-      PBKDF2_HMAC_SHA_1nat(pass, salt, iterations, outputBytes, hexResult, binResult);
+      PBKDF2_HMAC_SHA_1nat(pass, salt, saltlen, iterations, outputBytes, hexResult, binResult);
       break;
     case MD5_openssl:
       if (verbose && outputBytes > 16)
       {
         puts("WARNING: If you intend to use the result for password hashing, you should not choose a length greater than the native output size of the underlying hash function.");
       }
-      PBKDF2_HMAC_MD5(pass, salt, iterations, outputBytes, hexResult, binResult);
+      PBKDF2_HMAC_MD5(pass, salt, saltlen, iterations, outputBytes, hexResult, binResult);
       break;
     default:
       printf("Invalid algorithm choice.  Internal value %i\n",algo);
@@ -699,13 +730,15 @@ int main(int argc, char **argv)
             finResult = colonDeliminate(toUpper(hexResult, strlen(hexResult)), strlen(hexResult));
                         break;
                 case OUTFMT_BASE64MultiLine:
-            finResult = bin2Base64PlusSlashEqualsMultiLine(binResult, strlen(binResult));
+            finResult = bin2Base64PlusSlashEqualsMultiLine(binResult, outputBytes);
                         break;
                 case OUTFMT_BIN:
             finResult = binResult;
                         break;
                 case OUTFMT_BASE64SingleLine:
-            finResult = bin2Base64PlusSlashEqualsSingleLine(binResult, strlen(binResult));
+            finResult = bin2Base64PlusSlashEqualsSingleLine(binResult, outputBytes);
+//            // both methods appear to be working with the changes made.
+//              finResult = base64_encode(binResult, outputBytes, (size_t *)&outputActualLength); // from https://stackoverflow.com/questions/342409/how-do-i-base64-encode-decode-in-c
                         break;
                 default:
                     finResult = hexResult;      
@@ -730,6 +763,7 @@ int main(int argc, char **argv)
         }
   }
     
+  base64_cleanup();// from https://stackoverflow.com/questions/342409/how-do-i-base64-encode-decode-in-c
   
   return 0;
 }
