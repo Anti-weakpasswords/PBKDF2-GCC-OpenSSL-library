@@ -1,5 +1,5 @@
 /* salt formats and output formats appear to be working. 
-Next up: password formats, and testing extensions!
+Next up: Validating base64 input
 After that: add some deliberate failure tests!
 */
 
@@ -36,6 +36,12 @@ After that: add some deliberate failure tests!
 #define SFMT_STR              11100
 #define SFMT_BASE64SingleLine 11200
 #define SFMT_BASE64MultiLine  11300
+#define PFMT_HEX              12000
+#define PFMT_STR              12100
+#define PFMT_BASE64SingleLine 12200
+#define PFMT_BASE64MultiLine  12300
+
+
 
 // Binary printing courtesy https://stackoverflow.com/questions/111928/is-there-a-printf-converter-to-print-in-binary-format
 #define BYTETOBINARYPATTERN "%d%d%d%d%d%d%d%d"
@@ -52,11 +58,11 @@ After that: add some deliberate failure tests!
 
 // Originally from http://stackoverflow.com/questions/10067729/fast-sha-2-authentication-with-apache-is-it-even-possible
 
-void PBKDF2_HMAC_MD5(const char* pass, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
+void PBKDF2_HMAC_MD5(const char* pass, int passlen, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
 {
     unsigned int i;
     unsigned char digest[outputBytes];
-    PKCS5_PBKDF2_HMAC(pass, strlen(pass), salt, saltlen, iterations, EVP_md5(), outputBytes, digest);
+    PKCS5_PBKDF2_HMAC(pass, passlen, salt, saltlen, iterations, EVP_md5(), outputBytes, digest);
     for (i = 0; i < sizeof(digest); i++)
     {
         sprintf(hexResult + (i * 2), "%02x", 255 & digest[i]);
@@ -65,11 +71,11 @@ void PBKDF2_HMAC_MD5(const char* pass, const unsigned char* salt, int saltlen, i
 }
 
 
-void PBKDF2_HMAC_SHA_1nat(const char* pass, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
+void PBKDF2_HMAC_SHA_1nat(const char* pass, int passlen, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
 {
     unsigned int i;
     unsigned char digest[outputBytes];
-    PKCS5_PBKDF2_HMAC_SHA1(pass, strlen(pass), salt, saltlen, iterations, outputBytes, digest);
+    PKCS5_PBKDF2_HMAC_SHA1(pass, passlen, salt, saltlen, iterations, outputBytes, digest);
     for (i = 0; i < sizeof(digest); i++)
     {
         sprintf(hexResult + (i * 2), "%02x", 255 & digest[i]);
@@ -78,11 +84,11 @@ void PBKDF2_HMAC_SHA_1nat(const char* pass, const unsigned char* salt, int saltl
 }
 
 
-void PBKDF2_HMAC_SHA_1(const char* pass, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
+void PBKDF2_HMAC_SHA_1(const char* pass, int passlen, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
 {
     unsigned int i;
     unsigned char digest[outputBytes];
-    PKCS5_PBKDF2_HMAC(pass, strlen(pass), salt, saltlen, iterations, EVP_sha1(), outputBytes, digest);
+    PKCS5_PBKDF2_HMAC(pass, passlen, salt, saltlen, iterations, EVP_sha1(), outputBytes, digest);
     for (i = 0; i < sizeof(digest); i++)
     {
         sprintf(hexResult + (i * 2), "%02x", 255 & digest[i]);
@@ -91,11 +97,11 @@ void PBKDF2_HMAC_SHA_1(const char* pass, const unsigned char* salt, int saltlen,
 }
 
 
-void PBKDF2_HMAC_SHA_224(const char* pass, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
+void PBKDF2_HMAC_SHA_224(const char* pass, int passlen, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
 {
     unsigned int i;
     unsigned char digest[outputBytes];
-    PKCS5_PBKDF2_HMAC(pass, strlen(pass), salt, saltlen, iterations, EVP_sha224(), outputBytes, digest);
+    PKCS5_PBKDF2_HMAC(pass, passlen, salt, saltlen, iterations, EVP_sha224(), outputBytes, digest);
     for (i = 0; i < sizeof(digest); i++)
     {
         sprintf(hexResult + (i * 2), "%02x", 255 & digest[i]);
@@ -104,11 +110,11 @@ void PBKDF2_HMAC_SHA_224(const char* pass, const unsigned char* salt, int saltle
 }
 
 
-void PBKDF2_HMAC_SHA_256(const char* pass, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
+void PBKDF2_HMAC_SHA_256(const char* pass, int passlen, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
 {
     unsigned int i;
     unsigned char digest[outputBytes];
-    PKCS5_PBKDF2_HMAC(pass, strlen(pass), salt, saltlen, iterations, EVP_sha256(), outputBytes, digest);
+    PKCS5_PBKDF2_HMAC(pass, passlen, salt, saltlen, iterations, EVP_sha256(), outputBytes, digest);
     for (i = 0; i < sizeof(digest); i++)
     {
         sprintf(hexResult + (i * 2), "%02x", 255 & digest[i]);
@@ -116,11 +122,11 @@ void PBKDF2_HMAC_SHA_256(const char* pass, const unsigned char* salt, int saltle
     };
 }
 
-void PBKDF2_HMAC_SHA_384(const char* pass, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
+void PBKDF2_HMAC_SHA_384(const char* pass, int passlen, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
 {
     unsigned int i;
     unsigned char digest[outputBytes];
-    PKCS5_PBKDF2_HMAC(pass, strlen(pass), salt, saltlen, iterations, EVP_sha384(), outputBytes, digest);
+    PKCS5_PBKDF2_HMAC(pass, passlen, salt, saltlen, iterations, EVP_sha384(), outputBytes, digest);
     for (i = 0; i < sizeof(digest); i++)
     {
         sprintf(hexResult + (i * 2), "%02x", 255 & digest[i]);
@@ -129,11 +135,11 @@ void PBKDF2_HMAC_SHA_384(const char* pass, const unsigned char* salt, int saltle
 }
 
 
-void PBKDF2_HMAC_SHA_512(const char* pass, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
+void PBKDF2_HMAC_SHA_512(const char* pass, int passlen, const unsigned char* salt, int saltlen, int32_t iterations, uint32_t outputBytes, char* hexResult, uint8_t* binResult)
 {
     unsigned int i;
     unsigned char digest[outputBytes];
-    PKCS5_PBKDF2_HMAC(pass, strlen(pass), salt, saltlen, iterations, EVP_sha512(), outputBytes, digest);
+    PKCS5_PBKDF2_HMAC(pass, passlen, salt, saltlen, iterations, EVP_sha512(), outputBytes, digest);
     for (i = 0; i < sizeof(digest); i++)
     {
         sprintf(hexResult + (i * 2), "%02x", 255 & digest[i]);
@@ -424,6 +430,8 @@ int main(int argc, char **argv)
 {
   char *pass = NULL;
   char *salt = NULL;
+  uint32_t templen = 0; // templen used to avoid gcc 4.9.2 on Debian Jessie incorrectly using original variable on subsequent calls when -O3 is used (but NOT when -O3 was omitted)
+  uint32_t passlen = 0;  
   uint32_t saltlen = 0;
   char *expected = NULL;
   uint32_t iterations = 0;
@@ -435,6 +443,7 @@ int main(int argc, char **argv)
   uint8_t help = 0;
   uint32_t oType = OUTFMT_HEX;
   uint32_t sType = SFMT_STR;
+  uint32_t pType = PFMT_STR;
   
   opterr = 0;
 
@@ -483,11 +492,12 @@ int main(int argc, char **argv)
       case 'p':
         // password
         pass = optarg;
+        passlen = strlen(pass);
         break;
       case 's':
         // salt
         salt = optarg;
-        saltlen = strlen(optarg);
+        saltlen = strlen(salt);
         break;
       case 'i':
         // iteration count
@@ -546,7 +556,22 @@ int main(int argc, char **argv)
             printf("ERROR: For -S (saltfmt) argument %s unknown.  See %s -h for help.\n", optarg,argv[0]);
             return -6;
         }
-
+      break;
+      case 'P':
+        // password format
+        if(strcmp(optarg, "hex")==0)
+            pType = PFMT_HEX;
+        else if(strcmp(optarg, "str")==0)
+            pType = PFMT_STR;
+        else if (strcmp(optarg, "base64")==0)
+            pType = PFMT_BASE64SingleLine;
+        else if (strcmp(optarg, "base64ML")==0)
+            pType = PFMT_BASE64MultiLine;
+        else
+        {
+            printf("ERROR: For -P (passfmt) argument %s unknown.  See %s -h for help.\n", optarg,argv[0]);
+            return -7;
+        }
       break;
       case '?':
          puts("Case ?");fflush;
@@ -573,9 +598,9 @@ int main(int argc, char **argv)
     puts("  -v                 Verbose");
     puts("  -a algo            algorithm, valid values SHA-512|SHA-384|SHA-256|SHA-224|SHA-1|SHA-1nat|MD5   Note that in particular, SHA-384 and SHA-512 use 64-bit operations which as of 2014 penalize GPU's (attackers) much, much more than CPU's (you).  Use one of these two if at all possible.");
     puts("  -p password        Password to hash");
-    puts("  -P passwordfmt     NOT YET IMPLEMENTED - always string");
+    puts("  -P passwordfmt     Password format, valid values hex|str|base64     default is str");
     puts("  -s salt            Salt for the hash.  Should be long and cryptographically random.");
-    puts("  -S saltfmt         NOT WORKING RIGHT: format of salt, valid values hex|str|base64     default is str");
+    puts("  -S saltfmt         Salt format, valid values hex|str|base64     default is str");
     puts("  -i iterations      Number of iterations, as high as you can handle the delay for, at least 16384 recommended.");
     puts("  -o bytes           Number of bytes of output; for password hashing, keep less than or equal to native hash size (MD5 <=16, SHA-1 <=20, SHA-256 <=32, SHA-512 <=64)");
     puts("  -O outputfmt       Output format, valid values hex|Hex|hexc|Hexc|base64|bin    ");
@@ -590,12 +615,6 @@ int main(int argc, char **argv)
     puts("  -n                 Interactive mode; NOT YET IMPLEMENTED");
   }
      
-  if (verbose)
-  {
-        printf("Interpreted arguments: algo %i password %s salt %s iterations %i outputbytes %i outputfmt %i saltfmt %i expected %s \n\n",algo,pass,salt,iterations,outputBytes,oType,sType,expected);
-  }
-
-
   if (algo <= 0)
     {
     puts("You must select a known algorithm identifier.");
@@ -614,6 +633,7 @@ int main(int argc, char **argv)
     return 12;
     }
 
+
   switch (sType)
   {
       case SFMT_HEX:
@@ -624,32 +644,54 @@ int main(int argc, char **argv)
           };
         salt = hex2val(salt, saltlen);
         saltlen = saltlen / 2; // Validation ensured it was even and all characters were there
-        if(verbose)
-          {
-          printf("Decoded salt: %s\n",salt);
-          };
         break;
       case SFMT_BASE64SingleLine:
 //        salt= Base64PlusSlashEqualsSingleLine2bin(salt, strlen(salt));
-//        // ERROR ERROR NEED TO ADJUST SALTLEN!  MAY HAVE \0 values that halt strlen early
-          salt = base64_decode(salt, strlen(salt),(size_t *)&saltlen);
-        if(verbose)
-          {
-          printf("Decoded salt: %s\n",salt);
-          };
+          salt = base64_decode(salt, strlen(salt),(size_t *)&templen); // templen used to avoid gcc 4.9.2 on Debian Jessie incorrectly using original variable on subsequent calls when -O3 is used (but NOT when -O3 was omitted)
+          saltlen = templen; // templen used to avoid gcc 4.9.2 on Debian Jessie incorrectly using original variable on subsequent calls when -O3 is used (but NOT when -O3 was omitted)
         break;
       case SFMT_BASE64MultiLine:
         salt= Base64PlusSlashEqualsMultiLine2bin(salt, strlen(salt));
-        // ERROR ERROR NEED TO ADJUST SALTLEN!  MAY HAVE \0 values that halt strlen early
-        if(verbose)
-          {
-          printf("Decoded salt: %s\n",salt);
-          };
+// SALTLEN needs to be set!!!
         break;
-
       case SFMT_STR: // this is the default
         break; 
   }
+
+
+
+switch (pType)
+  {
+      case PFMT_HEX:
+				if (ValidateHexStringMultiCase(pass,strlen(pass)) == 0)
+					{
+          puts("Hex strings must have an even number of characters, and hexadecimal string characters MUST only be part of the set [0-9a-fA-F].");
+          return 14;
+          };
+        pass = hex2val(pass, passlen);
+        passlen = passlen / 2; // Validation ensured it was even and all characters were there
+        break;
+      case PFMT_BASE64SingleLine:
+//        pass= Base64PlusSlashEqualsSingleLine2bin(pass, strlen(pass));
+          pass = base64_decode(pass, strlen(pass),(size_t *)&templen); // templen used to avoid gcc 4.9.2 on Debian Jessie incorrectly using original variable on subsequent calls when -O3 is used (but NOT when -O3 was omitted)
+          passlen = templen; // templen used to avoid gcc 4.9.2 on Debian Jessie incorrectly using original variable on subsequent calls when -O3 is used (but NOT when -O3 was omitted)
+        break;
+      case PFMT_BASE64MultiLine:
+        pass= Base64PlusSlashEqualsMultiLine2bin(pass, strlen(pass));
+// PASSLEN needs to be set!!!
+        break;
+      case PFMT_STR: // this is the default
+        break; 
+  }
+
+
+
+  if (verbose)
+  {
+        printf("Interpreted arguments: algo %i iterations %i outputbytes %i outputfmt %i saltfmt %i passfmt %i decoded length %i password: %s Decoded length %i salt: %s expected %s \n\n",algo,iterations,outputBytes,oType,sType,pType,passlen,pass,saltlen,salt,expected);
+  }
+
+
     
   // 2*outputBytes+1 is 2 hex bytes per binary byte, and one character at the end for the string-terminating \0
   char hexResult[2*outputBytes+1];
@@ -666,49 +708,49 @@ int main(int argc, char **argv)
       {
         puts("WARNING: If you intend to use the result for password hashing, you should not choose a length greater than the native output size of the underlying hash function.");
       }
-      PBKDF2_HMAC_SHA_512(pass, salt, saltlen, iterations, outputBytes, hexResult, binResult);
+      PBKDF2_HMAC_SHA_512(pass, passlen, salt, saltlen, iterations, outputBytes, hexResult, binResult);
       break;
     case SHA_384_openssl:
       if (verbose && outputBytes > 48)
       {
         puts("WARNING: If you intend to use the result for password hashing, you should not choose a length greater than the native output size of the underlying hash function.");
       }
-      PBKDF2_HMAC_SHA_384(pass, salt, saltlen, iterations, outputBytes, hexResult, binResult);
+      PBKDF2_HMAC_SHA_384(pass, passlen, salt, saltlen, iterations, outputBytes, hexResult, binResult);
       break;
     case SHA_256_openssl:
       if (verbose && outputBytes > 32)
       {
         puts("WARNING: If you intend to use the result for password hashing, you should not choose a length greater than the native output size of the underlying hash function.");
       }
-      PBKDF2_HMAC_SHA_256(pass, salt, saltlen, iterations, outputBytes, hexResult, binResult);
+      PBKDF2_HMAC_SHA_256(pass, passlen, salt, saltlen, iterations, outputBytes, hexResult, binResult);
       break;
     case SHA_224_openssl:
       if (verbose && outputBytes > 28)
       {
         puts("WARNING: If you intend to use the result for password hashing, you should not choose a length greater than the native output size of the underlying hash function.");
       }
-      PBKDF2_HMAC_SHA_224(pass, salt, saltlen, iterations, outputBytes, hexResult, binResult);
+      PBKDF2_HMAC_SHA_224(pass, passlen, salt, saltlen, iterations, outputBytes, hexResult, binResult);
       break;
     case SHA_1_openssl:
       if (verbose && outputBytes > 20)
       {
         puts("WARNING: If you intend to use the result for password hashing, you should not choose a length greater than the native output size of the underlying hash function.");
       }
-      PBKDF2_HMAC_SHA_1(pass, salt, saltlen, iterations, outputBytes, hexResult, binResult);
+      PBKDF2_HMAC_SHA_1(pass, passlen, salt, saltlen, iterations, outputBytes, hexResult, binResult);
       break;
     case SHA_1_openssl_native:
       if (verbose && outputBytes > 20)
       {
         puts("WARNING: If you intend to use the result for password hashing, you should not choose a length greater than the native output size of the underlying hash function.");
       }
-      PBKDF2_HMAC_SHA_1nat(pass, salt, saltlen, iterations, outputBytes, hexResult, binResult);
+      PBKDF2_HMAC_SHA_1nat(pass, passlen, salt, saltlen, iterations, outputBytes, hexResult, binResult);
       break;
     case MD5_openssl:
       if (verbose && outputBytes > 16)
       {
         puts("WARNING: If you intend to use the result for password hashing, you should not choose a length greater than the native output size of the underlying hash function.");
       }
-      PBKDF2_HMAC_MD5(pass, salt, saltlen, iterations, outputBytes, hexResult, binResult);
+      PBKDF2_HMAC_MD5(pass, passlen, salt, saltlen, iterations, outputBytes, hexResult, binResult);
       break;
     default:
       printf("Invalid algorithm choice.  Internal value %i\n",algo);
