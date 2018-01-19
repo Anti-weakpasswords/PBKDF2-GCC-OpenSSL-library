@@ -30,7 +30,9 @@ After that: add some deliberate failure tests!
 #define OUTFMT_HEXC              10200
 #define OUTFMT_HEXUC             10300
 #define OUTFMT_BASE64SingleLine  10400
+#define OUTFMT_BASE64SingleLineURL  10425
 #define OUTFMT_BASE64MultiLine   10450
+#define OUTFMT_BASE64MultiLineURL   10475
 #define OUTFMT_BIN               10500
 #define SFMT_HEX              11000
 #define SFMT_STR              11100
@@ -315,7 +317,7 @@ unsigned char *base64_decode(const char *data,
 
 
 
-char *bin2Base64PlusSlashEqualsMultiLine(const unsigned char *input, int length)
+char *bin2Base64PlusSlashEqualsMultiLine(const unsigned char *input, int length, uint32_t *output_length)
 {
 // from http://www.ioncannon.net/programming/34/howto-base64-encode-with-cc-and-openssl/
   BIO *bmem, *b64;
@@ -332,14 +334,14 @@ char *bin2Base64PlusSlashEqualsMultiLine(const unsigned char *input, int length)
   char *buff = (char *)malloc(bptr->length); // when the BIO_FLAGS_BASE64_NO_NL is NOT set, no need for an extra byte.  If it IS set, then we must add a spot for \0.
   memset(buff,0,bptr->length); // \0 fill for completeness
   memcpy(buff, bptr->data, bptr->length);
-
+  *output_length = (uint32_t)bptr->length;
   BIO_free_all(b64);
 
   return buff;
 }
 
 
-char *bin2Base64PlusSlashEqualsSingleLine(const unsigned char *input, int length)
+char *bin2Base64PlusSlashEqualsSingleLine(const unsigned char *input, int length, uint32_t *output_length)
 {
 // from http://www.ioncannon.net/programming/34/howto-base64-encode-with-cc-and-openssl/
   BIO *bmem, *b64;
@@ -356,7 +358,7 @@ char *bin2Base64PlusSlashEqualsSingleLine(const unsigned char *input, int length
   char *buff = (char *)malloc(bptr->length+1); // when the BIO_FLAGS_BASE64_NO_NL is NOT set, no need for this.  If it IS set, then we must add a spot for \0.
   memset(buff,0,bptr->length+1); // \0 fill for completeness
   memcpy(buff, bptr->data, bptr->length);
-
+  *output_length = (uint32_t)bptr->length;
   BIO_free_all(b64);
 
   return buff;
@@ -425,6 +427,31 @@ char *colonDeliminate(char *input, int len)
 
     return out;
 }
+
+char *Base64RFC1521toURLsafe(char *input, int len)
+{
+    /* RFC1521 Base64 uses + and / for characters 63 and 64, and = for padding */
+    /* URLsafe Base64 uses - and _ for characters 63 and 64, and = for padding */
+    char *out = (char *)malloc(len);
+    for(int i = 0; i < len; i++)
+    {
+        if(input[i] == '+')
+          {
+          out[i] = '-';
+          }
+        else if(input[i] == '/')
+          {
+          out[i] = '_';
+          }
+        else
+          out[i] = input[i];
+    }
+    
+    return out;
+}
+
+
+
 
 int main(int argc, char **argv)
 {
@@ -531,8 +558,12 @@ int main(int argc, char **argv)
             oType = OUTFMT_HEXUC;
         else if(strcmp(optarg,"base64")==0)
             oType = OUTFMT_BASE64SingleLine;
+        else if(strcmp(optarg,"base64url")==0)
+            oType = OUTFMT_BASE64SingleLineURL;
         else if(strcmp(optarg,"base64ML")==0)
             oType = OUTFMT_BASE64MultiLine;
+        else if(strcmp(optarg,"base64MLurl")==0)
+            oType = OUTFMT_BASE64MultiLineURL;
         else if(strcmp(optarg,"bin")==0)
             oType = OUTFMT_BIN;
         else
@@ -607,10 +638,12 @@ int main(int argc, char **argv)
     puts("                            - hex:            Lowercase Hex (default)");
     puts("                            - HEX:            Uppercase Hex");
     puts("                            - hexc:           Lowercase Hex, colon deliminated");
-    puts("                            - HEXC:           Uppercase Hex,  deliminated");
-    puts("                            - base64:         Base64 single line");
-    puts("                            - base64ML:       Base64 multi line");
-    puts("                            - bin:            Binary");
+    puts("                            - HEXC:           Uppercase Hex, colon deliminated");
+    puts("                            - base64:         Base64 single line RFC1521 MIME, PEM - extra chars + and /, padding =");
+    puts("                            - base64url:      Base64 single line URLsafe - extra chars - and _, padding =");
+    puts("                            - base64ML:       Base64 multi line RFC1521 MIME, PEM - extra chars + and /, padding =");
+    puts("                            - base64MLurl:    Base64 multi line URLsafe - extra chars - and _, padding =");
+    puts("                            - bin:            Binary (actual binary output)");
     puts("  -e hash            Expected hash (in the same format as outputfmt) results in output of 0 <actual> <expected> = different, 1 = same NOT tested with outputfmt");
     puts("  -n                 Interactive mode; NOT YET IMPLEMENTED");
   }
@@ -772,15 +805,23 @@ switch (pType)
             finResult = colonDeliminate(toUpper(hexResult, strlen(hexResult)), strlen(hexResult));
                         break;
                 case OUTFMT_BASE64MultiLine:
-            finResult = bin2Base64PlusSlashEqualsMultiLine(binResult, outputBytes);
+            finResult = bin2Base64PlusSlashEqualsMultiLine(binResult, outputBytes,(uint32_t *)&outputActualLength);
                         break;
                 case OUTFMT_BIN:
             finResult = binResult;
                         break;
                 case OUTFMT_BASE64SingleLine:
-            finResult = bin2Base64PlusSlashEqualsSingleLine(binResult, outputBytes);
+            finResult = bin2Base64PlusSlashEqualsSingleLine(binResult, outputBytes,(uint32_t *)&outputActualLength);
 //            // both methods appear to be working with the changes made.
 //              finResult = base64_encode(binResult, outputBytes, (size_t *)&outputActualLength); // from https://stackoverflow.com/questions/342409/how-do-i-base64-encode-decode-in-c
+                        break;
+                case OUTFMT_BASE64SingleLineURL:
+            finResult = bin2Base64PlusSlashEqualsSingleLine(binResult, outputBytes,(uint32_t *)&outputActualLength);
+            finResult = Base64RFC1521toURLsafe(finResult, outputActualLength+1);
+                        break;
+                case OUTFMT_BASE64MultiLineURL:
+            finResult = bin2Base64PlusSlashEqualsMultiLine(binResult, outputBytes,(uint32_t *)&outputActualLength);
+            finResult = Base64RFC1521toURLsafe(finResult, outputActualLength+1);
                         break;
                 default:
                     finResult = hexResult;      
